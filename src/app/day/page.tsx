@@ -147,8 +147,21 @@ export default function DayRoutePage() {
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <div className="mx-auto max-w-3xl px-5 py-8">
-        <h1 className="text-xl font-bold">送迎ルート ／ 出欠台帳</h1>
-        <p className="mt-1 text-sm text-neutral-500">出欠を確認・保存してから、確定名簿でルートを生成します。</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold">送迎ルート ／ 出欠台帳</h1>
+            <p className="mt-1 text-sm text-neutral-500">出欠を確認・保存してから、確定名簿でルートを生成します。</p>
+          </div>
+          <button
+            onClick={async () => {
+              await fetch("/api/auth/session", { method: "DELETE" });
+              window.location.href = "/login";
+            }}
+            className="shrink-0 rounded-md px-2 py-1 text-xs text-neutral-500 ring-1 ring-neutral-200 hover:text-neutral-800 dark:ring-neutral-800 dark:hover:text-neutral-200"
+          >
+            ログアウト
+          </button>
+        </div>
 
         {/* 店舗タブ */}
         <div className="mt-5 flex flex-wrap gap-1.5">
