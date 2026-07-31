@@ -39,6 +39,7 @@ export default function DayRoutePage() {
   const [routeSource, setRouteSource] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [rideDone, setRideDone] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setDate(new Date().toISOString().slice(0, 10));
@@ -74,6 +75,12 @@ export default function DayRoutePage() {
       setLoadingAtt(false);
     }
   };
+
+  // 店舗・日付が変わったら出欠を自動読込
+  useEffect(() => {
+    if (store && date) loadAttendance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, date]);
 
   const toggle = (id: string) =>
     setRoster((rs) =>
@@ -137,9 +144,35 @@ export default function DayRoutePage() {
       setUnassigned(d.unassigned ?? []);
       setRouteSource(d.source ?? "");
       if (!d.slots?.length) setMsg(d.note ?? "対象者がいません。");
+      // 乗降記録の読込（当日の記録済みを反映）
+      const et = direction === "pickup" ? "picked_up" : "dropped_off";
+      const rr = await fetch(`/api/day/ride-event?store=${encodeURIComponent(store)}&date=${date}`);
+      const rd = await rr.json();
+      const done = new Set<string>(
+        ((rd.events ?? []) as { member_id: string; event_type: string }[])
+          .filter((e) => e.event_type === et)
+          .map((e) => e.member_id),
+      );
+      setRideDone(done);
     } finally {
       setGenLoading(false);
     }
+  };
+
+  const toggleRide = async (memberId: string) => {
+    const et = direction === "pickup" ? "picked_up" : "dropped_off";
+    const wasDone = rideDone.has(memberId);
+    setRideDone((prev) => {
+      const n = new Set(prev);
+      if (wasDone) n.delete(memberId);
+      else n.add(memberId);
+      return n;
+    });
+    await fetch("/api/day/ride-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store, date, member_id: memberId, event_type: et, recorded: !wasDone }),
+    }).catch(() => {});
   };
 
   const presentCount = roster.filter((r) => r.planned_status !== "absent").length;
@@ -274,6 +307,22 @@ export default function DayRoutePage() {
                         <span className="w-5 text-right text-xs text-neutral-400">{j + 1}</span>
                         <span className="flex-1">{st.name}</span>
                         <span className="text-xs text-neutral-400">目安 {st.eta_min}分</span>
+                        <button
+                          onClick={() => toggleRide(st.user_id)}
+                          className={`rounded px-1.5 py-0.5 text-xs ${
+                            rideDone.has(st.user_id)
+                              ? "bg-teal-600 text-white"
+                              : "text-neutral-500 ring-1 ring-neutral-300 dark:ring-neutral-700"
+                          }`}
+                        >
+                          {direction === "pickup"
+                            ? rideDone.has(st.user_id)
+                              ? "乗車済"
+                              : "乗車"
+                            : rideDone.has(st.user_id)
+                              ? "送済"
+                              : "お送り"}
+                        </button>
                         <a href={`https://www.google.com/maps/search/?api=1&query=${st.lat},${st.lng}`} target="_blank" rel="noreferrer" className="rounded px-1.5 py-0.5 text-xs text-teal-700 ring-1 ring-teal-300 dark:text-teal-300 dark:ring-teal-800">ナビ</a>
                       </li>
                     ))}

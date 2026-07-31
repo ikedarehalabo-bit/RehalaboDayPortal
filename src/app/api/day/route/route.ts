@@ -103,6 +103,18 @@ export async function POST(request: Request) {
       note: "対象者がいません（曜日・座標化・送迎要否をご確認ください）。",
     });
 
+  // Google Routes API の1回上限（約25地点＝デポ＋利用者24）。超える場合は時間帯で絞ってもらう。
+  if (users.length > 24)
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: "too_many_points",
+        count: users.length,
+        hint: "対象が多すぎます（上限24名/回）。時間帯（午前/午後）で絞って生成してください。",
+      },
+      { status: 400 },
+    );
+
   const { data: vehicles } = await db
     .from("vehicles")
     .select("id,name,seats,wheelchair_slots,rounds")

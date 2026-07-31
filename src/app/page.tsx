@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase-server";
 
 // 常に最新のDB状態を表示（キャッシュしない）
@@ -37,6 +38,13 @@ export default async function Home() {
         <p className="mt-2 text-sm text-neutral-500">
           Next.js → Supabase → stores マスタ（seed投入分）を表示しています。
         </p>
+
+        <Link
+          href="/day"
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
+        >
+          送迎ルート・出欠台帳を開く →
+        </Link>
 
         {errorMsg ? (
           <div className="mt-8 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
