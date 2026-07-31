@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 
-// ポータル(Workプラットフォーム)のSupabase認証を使う。職員は同じアカウントでログイン。
-// env 未設定でも画面が落ちないよう、クリック時に遅延生成する。
-function portalClient() {
-  const url = process.env.NEXT_PUBLIC_PORTAL_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_PORTAL_SUPABASE_ANON_KEY;
-  if (!url || !anon) return null;
-  return createClient(url, anon, { auth: { persistSession: false } });
+// ポータル(Workプラットフォーム)と同じ Firebase 認証を使う。職員は同じアカウントでログイン。
+// Firebase REST(signInWithPassword)でIDトークンを取得 → /api/auth/session で検証してCookie発行。
+async function firebaseSignIn(email: string, password: string): Promise<string | null> {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  if (!apiKey) throw new Error("firebase_not_configured");
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    },
+  );
+  if (!res.ok) return null;
+  const data = (await res.json()) as { idToken?: string };
+  return data.idToken ?? null;
 }
 
 export default function LoginPage() {
@@ -22,30 +30,29 @@ export default function LoginPage() {
     e.preventDefault();
     setBusy(true);
     setErr("");
-    const portal = portalClient();
-    if (!portal) {
-      setErr("認証設定が未構成です（NEXT_PUBLIC_PORTAL_SUPABASE_* を .env.local に設定してください）。");
+    try {
+      const idToken = await firebaseSignIn(email, password);
+      if (!idToken) {
+        setErr("メールアドレスまたはパスワードが違います。");
+        setBusy(false);
+        return;
+      }
+      const r = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: idToken }),
+      });
+      if (!r.ok) {
+        setErr("認証に失敗しました。もう一度お試しください。");
+        setBusy(false);
+        return;
+      }
+      const next = new URLSearchParams(window.location.search).get("next") || "/";
+      window.location.href = next;
+    } catch {
+      setErr("認証設定が未構成です（NEXT_PUBLIC_FIREBASE_* を .env.local に設定してください）。");
       setBusy(false);
-      return;
     }
-    const { data, error } = await portal.auth.signInWithPassword({ email, password });
-    if (error || !data.session) {
-      setErr("メールアドレスまたはパスワードが違います。");
-      setBusy(false);
-      return;
-    }
-    const r = await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: data.session.access_token }),
-    });
-    if (!r.ok) {
-      setErr("認証に失敗しました。もう一度お試しください。");
-      setBusy(false);
-      return;
-    }
-    const next = new URLSearchParams(window.location.search).get("next") || "/day";
-    window.location.href = next;
   };
 
   return (

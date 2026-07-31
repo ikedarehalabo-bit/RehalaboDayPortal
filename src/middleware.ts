@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
 
-/** /day と /api/day/* を職員ログイン必須にする。/login・/api/auth/* は対象外。 */
-export const config = { matcher: ["/day/:path*", "/api/day/:path*"] };
+/** ホーム(/)・/day・/api/day/* を職員ログイン必須にする（ログインが最初）。/login・/api/auth/* は対象外。 */
+export const config = { matcher: ["/", "/day/:path*", "/api/day/:path*"] };
 
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
